@@ -20,7 +20,7 @@
 
 FROM centos:centos7
 
-MAINTAINER Icinga Development Team
+MAINTAINER Steve Black
 
 # for systemd
 ENV container docker
