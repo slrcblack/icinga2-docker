@@ -1,24 +1,5 @@
 #!/bin/bash
 
-#/******************************************************************************
-# * docker-icinga2                                                             *
-# * Dockerfile for Icinga 2 and Icinga Web 2                                   *
-# * Copyright (C) 2015 Icinga Development Team (http://www.icinga.org)         *
-# *                                                                            *
-# * This program is free software; you can redistribute it and/or              *
-# * modify it under the terms of the GNU General Public License                *
-# * as published by the Free Software Foundation; either version 2             *
-# * of the License, or (at your option) any later version.                     *
-# *                                                                            *
-# * This program is distributed in the hope that it will be useful,            *
-# * but WITHOUT ANY WARRANTY; without even the implied warranty of             *
-# * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *
-# * GNU General Public License for more details.                               *
-# *                                                                            *
-# * You should have received a copy of the GNU General Public License          *
-# * along with this program; if not, write to the Free Software Foundation     *
-# * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.             *
-# ******************************************************************************/
 
 set -e
 
@@ -37,10 +18,10 @@ echo_log "Fetching latest icinga* snapshot packages."
 } &> /dev/null
 
 echo_log "Validating the icinga2 configuration first."
-if ! icinga2 daemon -C; then
-	echo_log "Icinga 2 config validation failed. Stopping the container."
-	exit 1
-fi
+#if ! icinga2 daemon -C; then
+	#echo_log "Icinga 2 config validation failed. Stopping the container."
+	#exit 0
+#fi
 
 
 if [ ! -f "${initfile}" ]; then
@@ -48,6 +29,20 @@ if [ ! -f "${initfile}" ]; then
         # enable icinga2 features if not already there
 #        icinga2 feature enable command
          icinga2 feature disable notification
+
+        rm /etc/icinga2/conf.d/app.conf
+        rm /etc/icinga2/conf.d/commands.conf
+        rm /etc/icinga2/conf.d/downtimes.conf
+        rm /etc/icinga2/conf.d/groups.conf
+        rm /etc/icinga2/conf.d/hosts.conf
+        rm /etc/icinga2/conf.d/notifications.conf
+        rm /etc/icinga2/conf.d/satellite.conf
+        rm /etc/icinga2/conf.d/services.conf
+        rm /etc/icinga2/conf.d/templates.conf
+        rm /etc/icinga2/conf.d/timeperiods.conf
+        rm /etc/icinga2/conf.d/users.conf
+        echo "constant DNODE = \"$IEND\"" >> /etc/icinga2/constants.conf
+        echo "constant DZONE = \"$IZONE\"" >> /etc/icinga2/constants.conf
 
         echo_log "Enabling icingaweb2 modules."
         if [[ -L /etc/icingaweb2/enabledModules/monitoring ]]; then echo "Symlink for /etc/icingaweb2/enabledModules/monitoring exists already...skipping"; else ln -s /usr/share/icingaweb2/modules/monitoring /etc/icingaweb2/enabledModules/monitoring; fi
