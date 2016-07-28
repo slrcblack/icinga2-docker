@@ -1,0 +1,61 @@
+#!/usr/bin/php
+<?php
+/*
+Niles Ingalls 2014 ENA
+
+// report on 
+*/
+
+@list(,$day, $critical, $verbose) = $argv;
+
+if(isset($day) && $day > 0) {
+
+	$dbh = new PDO("mysql:host=mysql10.corp.ena.net;dbname=enareporting", 'cfreports', 'cfreports');
+	$dupes = array();
+	$excludes = array('group_323598', 'group_313157', 'group_200059', 'group_151', 'group_142');
+	foreach($dbh->query("select gid, sum(row_count) as total from enareporting.daily_aggregates_counts where logdate >= NOW() - INTERVAL $day DAY group by gid having total > 0 && gid > 0;") as $row) {
+		$groups[] = 'group_' . $row['gid'];
+	}
+	$cb = new Couchbase("cb01-dav.davidson.tn.ena.net:8091", "", "", "websafe");
+	$cb->setOption(COUCHBASE_OPT_IGNOREFLAGS,true);
+	$cb_groups = ($cb->view("group", "by_name"));
+	$cb_groups = $cb_groups['rows'];
+
+	foreach($cb_groups AS $group) {
+		if(!in_array($group['id'], $excludes)) {
+			$cb_groups_compare[] = $group['id'];
+			$cb_groups_policy[$group['id']] = $group['key'];
+		}
+	}
+	$group_diff = array_diff($cb_groups_compare, $groups);
+
+	if(count($group_diff) > 0) {
+		foreach($group_diff AS $value) {
+			if(isset($verbose) && $verbose > 0) {
+				@$msg .= substr($value, 6) . ':' . $cb_groups_policy[$value] . " ";
+			} else {
+				@$msg .= "$value ";
+			}
+		}
+		if($day == 1) {
+			$day = '1 day';
+		} else {
+			$day = "$day days";
+		}
+		if(isset($critical) && $critical > 0) {
+			printf('CRITICAL -no reporting data- %s - %s|policy_count=%d', $day, $msg, count($group_diff));
+			exit(2);
+		} else { // warning
+			printf('WARNING -no reporting data- %s - %s|policy_count=%d', $day, $msg, count($group_diff));
+			exit(1);
+		}
+	} else { // ok
+		echo 'OK -reporting data for all policies|policy_count=0'; 
+		exit(0);
+	}
+
+} else {
+	echo 'UNKNOWN: no data given';
+	exit(3);
+}
+?>

@@ -1,0 +1,2 @@
+#!/bin/bash
+groupexternal=`/bin/grep groupexternal_children /usr/local/netsweeper/etc/nsd.conf|/bin/egrep -v '^#'|/bin/cut -d' ' -f2`;/usr/lib64/nagios/plugins/check_procs -w$groupexternal:$groupexternal -c$groupexternal:1024 -aao-external

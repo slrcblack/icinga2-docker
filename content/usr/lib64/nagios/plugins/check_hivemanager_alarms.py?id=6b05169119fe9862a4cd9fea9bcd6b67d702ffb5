@@ -1,0 +1,166 @@
+#!/usr/bin/python2.7
+
+# Written by Dave Jones 8/15/2013
+
+# This script connects to a custom URL that provides HiveManager status in JSON format
+# then converts the output to a Nagios plugin check format with performance data.
+
+#{
+#    "2701": {
+#        "ap.we-lib.2701.dyersburghs.tn": {
+#            "Status": "Ok",
+#            "Description": null,
+#            "Component": null
+#        },
+#        "ap.rm214.2701.dyersburghs.tn": {
+#            "Status": "Critical",
+#            "Description": null,
+#            "Component": null
+#        }
+#    }
+#}
+
+import os
+import sys
+import time
+import httplib
+import json
+import re
+from collections import Counter
+from optparse import OptionParser
+
+
+URL = "apps.websafe.ena.net"
+URI = "/hm-alarms/?crit"
+CIDexclude = ["9620", "9626"]
+status = 0
+output = ""
+CIDcrit = 0
+APcrit = 0
+APwarn = 0
+APtotal = 0
+
+# Nagios config options
+hostalivecommand = "check-host-alive"
+hosttemplate = "generic-host"
+hostcontactgroups = "stupid"
+servicetemplate = "generic-service"
+servicecommand = "always-true"
+servicedescription = "ENA AIR "
+servicecontactgroups = "stupid"
+nagioscmd = "/var/spool/icinga/cmd/icinga.cmd"
+if not os.path.exists(nagioscmd):
+    nagioscmd = "/usr/local/nagios/var/rw/nagios.cmd"
+
+usage = "usage: %prog [options]"
+parser = OptionParser(usage=usage)
+parser.add_option("-f", "--file",
+                   dest="filename",
+                   help="write Nagios hosts cfg FILE", metavar="FILE")
+parser.add_option("-d", "--debug",
+                  action="store_true", dest="debug", default=False,
+                  help="enable debug output", )
+(options, args) = parser.parse_args()
+
+
+try:
+    conn = httplib.HTTPConnection(URL)
+    conn.request("GET", URI)
+    resp = conn.getresponse()
+    if resp.status != 200:
+        print "UNKNOWN: Error getting response from HiveManager alarms URL.  http://" + URL + URI + " " + str(resp.status) + " " + str(resp.reason)
+        sys.exit(3) 
+    json_data = resp.read()
+    conn.close()
+except:
+    print "UNKNOWN: Error connecting to HiveManager alarms URL.  http://" + URL + URI 
+    sys.exit(3)
+
+try:
+    data = json.loads(json_data)
+except Exception as e:
+    print "UNKNOWN: Error loading JSON output from HiveManager alarms URL.  http://" + URL + URI + " Error: " + e
+    sys.exit(3)
+
+try:
+    if options.filename:
+        f = open(options.filename, 'w')
+except:
+    print "Error opening " + options.filename + " for writing."
+    sys.exit(1)
+
+try:
+    if not options.filename:
+        cmd = open(nagioscmd, 'a', 0)
+except:
+    print "CRITICAL - Error opening " + nagioscmd + " for writing."
+    sys.exit(2)
+
+
+for CID in data:
+    try:
+        CIDexclude.index(CID) # see if this CID is in the exclude list, exception means it's not
+    except:
+        try:
+            count = Counter()
+            APnum = 0
+            for AP in data[CID]:
+                APnum += 1
+                if APnum == 1: # The first AP in the CID will be used to create the virtual host definition
+                    t = re.sub(r'^([a-zA-Z0-9\-]*\.){2}', '', AP)  # strip off the leading 2 segments based on periods
+                    CIDname = re.sub(r'(hs|ms|es|-..|-.hs)\.', '.', t)  # remove substrings of locations to be generic
+                    if options.filename:
+                        block = ("define host {\n\thost_name\t\t" + CIDname + "\n\talias\t\t\t" + CIDname + "\n\tdisplay_name\t\t" + CIDname + "\n\taddress\t\t\t127.0.0.1\n\tcheck_command\t\t" + hostalivecommand + "\n\tuse\t\t\t" + hosttemplate + "\n\tcontact_groups\t\t" + hostcontactgroups + "\n\tregister\t\t1\n}\n\n")
+                        f.write(block)
+                if options.filename:
+                    block = ("define service {\n\tuse\t\t\t" + servicetemplate + "\n\thost_name\t\t" + CIDname + "\n\tservice_description\t" + servicedescription + AP + "\n\tdisplay_name\t\t" + servicedescription + AP + "\n\tcheck_interval\t\t0\n\tcontact_groups\t\t" + servicecontactgroups + "\n\tcheck_command\t\t" + servicecommand + "\n}\n\n")
+                    f.write(block)
+                APstatus = data[CID][AP]['Status']
+                if APstatus == "Ok":
+                    state = "OK"
+                    result = 0
+                elif APstatus == "Critical":
+                    state = "CRITICAL"
+                    result = 2
+                    APcrit += 1
+                else:
+                    state = "WARNING"
+                    result = 1
+                    APwarn += 1
+                try:
+                    APdesc = data[CID][AP]['Description'].replace("\n"," ")
+                    if len(APdesc) > 35:
+                        APdesc = APdesc[:35] + " ... "
+                except:
+                    APdesc = "HiveManager reported " + APstatus
+                passivecheck = ("[" + str(int(time.time())) + "] PROCESS_SERVICE_CHECK_RESULT;" + CIDname + ";" + servicedescription + AP + ";" + str(result) + ";" + state + " - " + APdesc)
+                if options.debug:
+                    print passivecheck
+                try:
+                    if not options.filename:
+                        cmd.write(passivecheck + "\n")
+                except IOError:
+                    print "Error writing to " + nagioscmd
+                count[data[CID][AP]['Status']] += 1
+                APtotal += 1
+            if count['Critical'] > 0:
+                CIDcrit += 1
+            output = output + ", " + CID + "=" + str(len(data[CID])) + "/" + str(count['Ok']) + "/" + str(count['Critical'])
+        except Exception as e:
+            error = ("Error decoding JSON output from HiveManager alarms URL.  http://" + URL + URI + " Error: " + e)
+            if options.filename:
+                f.write(error)
+                f.close
+            print "UNKNOWN: " + error
+            sys.exit(3)
+
+if len(output) > 350:
+    output = output[:350] + " ... "
+
+if options.filename:
+    f.close
+else:
+    cmd.close
+    print "APs=" + str(APtotal) + "/" + str(APtotal-APcrit) + "/" + str(APcrit) + ", CIDs=" + str(len(data)) + "/" + str(len(data)-CIDcrit) + "/" + str(CIDcrit) + output + "|totalAPs="+ str(APtotal)
+
+sys.exit(0)

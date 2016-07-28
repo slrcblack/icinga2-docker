@@ -1,0 +1,29 @@
+#! /usr/bin/perl -w
+
+use strict;
+my $prefix = $ARGV[0];
+if (! $prefix) {
+  print "Usage: check_bgp_route <prefix[/length]>\r\n";
+  exit 3;
+}
+my $t;
+my $server = "routes.ena.net";
+my $passwd = "admin";
+
+use Net::Telnet ();
+$t = new Net::Telnet (Timeout => 10);
+$t->open($server);
+$t->waitfor('/Password:.*$/');
+$t->print($passwd);
+$t->waitfor('/>/');
+
+(my $route) = $t->cmd("show ip bgp $prefix");
+
+if ($route =~ /% Network not in table/) {
+  print "CRITICAL - $prefix not visible on routes.ena.net\n";
+  exit 2;
+} else {
+  print "OK - $prefix present on routes.ena.net\n";
+}
+
+exit;

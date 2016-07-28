@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# Arguments:
+#  $1 = host_name (Short name of host that the service is
+#       associated with)
+#  $2 = svc_description (Description of the service)
+#  $3 = state_string (A string representing the status of
+#       the given service - "OK", "WARNING", "CRITICAL"
+#       or "UNKNOWN")
+#  $4 = plugin_output (A text string that should be used
+#       as the plugin output for the service checks)
+#
+
+case "$3" in
+   OK)
+     return_code=0 ;;
+   WARNING)
+     return_code=1 ;;
+   CRITICAL)
+     return_code=2 ;;
+   *)
+     return_code=-1 ;;
+esac
+
+# For Icinga instance used by CTAC (monitor.ena.net)
+/bin/echo -e "$1\t$2\t$return_code\t$4\n" | /usr/sbin/send_nsca -H 172.27.0.253 -p 5667 -c /etc/nagios/send_nsca.cfg
+
+# For Icinga CMV instance used by customers (monitoring.ena.com)
+/bin/echo -e "$1\t$2\t$return_code\t$4\n" | /usr/sbin/send_nsca -H 172.27.0.54 -p 5668 -c /etc/nagios/send_nsca.cfg
+#/bin/echo -e "$1\t$2\t$return_code\t$4\n" | /usr/sbin/send_nsca -H 172.27.71.22 -p 5668 -c /etc/nagios/send_nsca.cfg

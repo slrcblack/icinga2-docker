@@ -1,0 +1,198 @@
+#! /usr/bin/perl -w
+
+
+use strict;
+use Getopt::Long;
+use vars qw($opt_V $opt_h $opt_f $PROGNAME);
+use lib "/usr/lib64/nagios/plugins"  ;
+use utils qw(%ERRORS &print_revision &support &usage);
+use Net::SNMP qw(:snmp);;
+
+$PROGNAME = "check_egress";
+
+my ($opt_H, $temp_id);
+my $community="z5tGreZ9";
+my $snmp_ifDescr = "1.3.6.1.2.1.2.2.1.2";
+my $snmp_ifAlias = "1.3.6.1.2.1.31.1.1.1.18";
+my $snmp_ifOperStatus = "1.3.6.1.2.1.2.2.1.8";
+my $output = "";
+my $temp_out = "";
+my $egress_count = 0;
+my $circuit_count = 0;
+my $int_count = 0;
+my $isdn_site = 0;
+my $isdn_found = 0;
+
+my $debug = 0;
+sub print_help ();
+sub print_usage ();
+
+$ENV{'PATH'}='';
+$ENV{'BASH_ENV'}=''; 
+$ENV{'ENV'}='';
+
+Getopt::Long::Configure('bundling');
+GetOptions
+	("V"   => \$opt_V, "version"    => \$opt_V,
+	 ""   => \$opt_h, "help"       => \$opt_h,
+	 "H=s" => \$opt_H, "host"       => \$opt_H);
+
+if ($opt_V) {
+	print_revision($PROGNAME,'$Revision: 1.9 $');
+	exit $ERRORS{'OK'};
+}
+if ($opt_h) {print_help(); exit $ERRORS{'OK'};}
+
+($opt_H) || usage("Router IP not specified\n");
+
+my ($session, $error) = Net::SNMP->session(
+   -hostname  => $opt_H,
+   -community => $community,
+   -port      => 161 
+);
+
+if (!defined($session)) {
+   printf("ERROR: %s.\n", $error);
+   exit 1;
+}
+
+my $ifAlias = $session->get_table($snmp_ifAlias);
+
+if (!defined($ifAlias)) {
+   printf("ERROR: %s.\n", $session->error);
+   $session->close;
+   exit $ERRORS{'CRITICAL'};
+}
+
+foreach my $oid (oid_lex_sort(keys(%{$ifAlias}))) {
+	# step through the Aliases looking for !~#d !~@ 
+	if ($ifAlias->{$oid} =~ /\!\~\#(\d+)/) {
+	
+		# Found L7 interface count
+		$int_count = $1;
+		next;
+	}
+		print "$ifAlias->{$oid}\n" if ($debug);
+	if (($ifAlias->{$oid} =~/\!\~\@/) || ($ifAlias->{$oid} =~ /\!\~\%/)) {
+		($temp_id = $oid) =~ s/.*\.(\d+)/$1/;
+		my $iD = $snmp_ifDescr . "." . $temp_id;
+		my $iOS = $snmp_ifOperStatus . "." . $temp_id;
+		my $response = $session->get_request($iOS);
+		my $ifOperStatus = $response->{$iOS};
+		$response = $session->get_request($iD);
+		my $ifDescr = $response->{$iD};
+		# ignore Dialer interfaces as they're irrelevant but marked with !~@ for other purposes
+		next if ($ifDescr =~ /Dialer/i);
+		if ($ifAlias->{$oid} =~/\!\~\%/) { $circuit_count ++; };
+		if ($ifAlias->{$oid} =~/\!\~\@/) { $egress_count ++; };
+		if ($ifOperStatus ne "1") {
+			$response = $session->get_request($iD);
+			my $ifDescr = $response->{$iD};
+			$temp_out .= " - $ifDescr is down";
+		}
+	}
+}
+
+if ($egress_count == 0) {
+	# This must be an ISDN router
+	my %ISDN_dupes = ();
+	my $ISDN = $session->get_table($snmp_ifDescr);
+	$isdn_site=1;
+	foreach my $oid (oid_lex_sort(keys(%{$ISDN}))) {
+        	# step through the Descriptions looking for BRI0/?:?
+		print "$ISDN->{$oid}\n" if ($debug);
+	        if ($ISDN->{$oid} =~ /BRI0\/\d\:\d/) {
+			$isdn_found=1;
+	                ($temp_id = $oid) =~ s/.*\.(\d+)/$1/;
+	                my $iOS = $snmp_ifOperStatus . "." . $temp_id;
+	                my $response = $session->get_request($iOS);
+	                my $ifOperStatus = $response->{$iOS};
+       	         	if ($ifOperStatus != "1") {
+			$ISDN_dupes{$ISDN->{$oid}} = 1;
+                	}
+        	}
+	}
+	# ISDN B Channels are duped in SNMP (d'oh!). This is so I only show them once.
+	foreach my $key (sort keys %ISDN_dupes) {
+	        $temp_out .= " - $key is down";
+	}
+}
+
+$session->close;
+
+# There were circuits down.
+if ($temp_out) {
+	$output .= "CRITICAL" . $temp_out;
+	print $output;
+	exit $ERRORS{"CRITICAL"};
+}
+# nothing marked as egress and no ISDN interfaces
+if (($isdn_site == '1') && ($isdn_found == '0') && ($egress_count = 0)) {
+  $output .= "CRITICAL: No ISDN interfaces marked.";
+  print $output;
+  exit $ERRORS{"CRITICAL"};
+}
+# I only saw 1 ISDN B channel
+if (($isdn_site) && ($egress_count == '1')) {
+	$output .= "WARNING - Only 1 ISDN channel.";
+	print $output;
+	exit $ERRORS{"WARNING"};
+}
+# ISDN sites are not marked with !~#d so I there's nothing more I can check.
+if ($isdn_site) {
+  $output .= "OK - All ISDN circuits are up.";
+	print $output;
+	exit $ERRORS{"OK"};
+}	
+# Egress count doesn't match expected count
+if (($egress_count != $int_count) && ($int_count > 0) && !($isdn_site)) {
+	$output .= "WARNING - Found $egress_count egress (!~@) interface(s) but $int_count interface(s) [!~#d].|egress_count=$egress_count, interface_count=$int_count, circuit_count=$circuit_count";
+	print $output;
+	exit $ERRORS{"WARNING"};
+}
+# Saw circuits but not a !~#d
+if ((($circuit_count >= '1') || ($egress_count) >= '1') && ($int_count == '0')) {
+	$output .= "CRITICAL - Multi-circuit site but the interface (!~#d) count is missing.|egress_count=$egress_count, interface_count=$int_count, circuit_count=$circuit_count";
+	print $output;
+	exit $ERRORS{"CRITICAL"};
+}
+# Saw circuits but only 1 (multi-circuit check)
+if ((($egress_count + $circuit_count) == '1') && ($int_count > 1)) {
+	$output .= "WARNING - Multi-circuit site only has 1 circuit (!~%).|egress_count=$egress_count, interface_count=$int_count, circuit_count=$circuit_count";
+	print $output;
+	exit $ERRORS{"WARNING"};
+}
+# marked as multi-circuit but really only has 1; check should be disabled 
+if ((($egress_count + $circuit_count) == '1') && ($int_count == 1)) {
+	$output .= "WARNING - Single circuit site, this test should be disabled.|egress_count=$egress_count, interface_count=$int_count, circuit_count=$circuit_count";
+	print $output;
+	exit $ERRORS{"WARNING"};
+}
+# No circuits were found at all?!
+if (($egress_count == '0') && ($circuit_count == '0')) {
+	$output .= "CRITICAL - Site unreachable or unable to determine interface types.|egress_count=$egress_count, interface_count=$int_count, circuit_count=$circuit_count";
+	print $output;
+	exit $ERRORS{"CRITICAL"};
+}
+$output .= "OK - All circuits are up. $egress_count egress, $circuit_count circuit(s), $int_count interface(s)|egress_count=$egress_count, interface_count=$int_count, circuit_count=$circuit_count";
+print $output;
+exit $ERRORS{"OK"};
+
+sub print_usage () {
+	print "Usage: $PROGNAME -H <routerip>\n";
+}
+
+sub print_help () {
+	print_revision($PROGNAME,'$Revision: 1.9.1 $');
+	print "Copyright (c) 2003 Marc Powell, updated by Dave Jones (2014)
+
+
+";
+	print_usage();
+	print "
+-H, --host=IP ADDRESS
+  The IP address of the host to check. 
+
+";
+	support();
+}

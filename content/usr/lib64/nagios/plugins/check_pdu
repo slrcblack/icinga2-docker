@@ -1,0 +1,95 @@
+#!/usr/bin/perl
+#
+#use warnings;
+
+# added some performance data (Niles Ingalls ENA 2013)
+
+use SNMP; # requires net-mgmt/p5-Net-SNMP
+use lib "/usr/lib64/nagios/plugins";
+use Switch;
+use utils qw(%ERRORS);
+
+my $usage = '
+Usage: ${0} hostname snmp_community key min max
+
+Connects via SNMP to a UPS or PDU and pulls Input/Output
+voltages and frequencies, as well as current output (amps).
+
+hostname is the name of the host youi\'re checking
+snmp_community is the SNMP community string for authenticaiton
+key, is the specific key you\'re requesting, from:
+	inputf......Input Frequency
+	inputv......Input Voltage
+	outputf.....Output Frequency
+	outputv.....Output Voltage
+	outputc.....Output Current
+
+This script outputs performance data compatible with Nagios.
+$Id: check_pdu 7719 2008-05-30 19:18:00Z ecrist $
+';
+$ENV{'MIBS'} = "TRIPPLITE-MIB";
+$host = $ARGV[0]; die $usage unless defined $host;
+$community = $ARGV[1]; die $usage unless defined $community;
+$key = $ARGV[2]; die $usage unless defined $key;
+$min = $ARGV[3]; die $usage unless defined $min;
+$max = $ARGV[4]; die $usage unless defined $max;
+
+
+$session = new SNMP::Session (DestHost => $host, Community => $community, Version => "2c");
+$oids = new SNMP::VarList (['UPS-MIB::upsIdentManufacturer'],	#0
+			   ['UPS-MIB::upsIdentModel'],		#1
+			   ['UPS-MIB::upsInputVoltage'],	#2
+			   ['UPS-MIB::upsInputFrequency'],	#3
+			   ['UPS-MIB::upsOutputVoltage'],	#4
+			   ['UPS-MIB::upsOutputFrequency'],	#5
+			   ['UPS-MIB::upsOutputCurrent']);	#6
+
+@status = $session->getnext($oids);
+$manuf = $status[0];
+$model = $status[1];
+$inputv = $status[2]/10;
+$inputf = $status[3]/100;
+$outputv = $status[4]/10;
+$outputf = $status[5]/10;
+$outputc = $status[6]/10;
+
+switch ($key) {
+
+	case "inputv" {
+		
+		$out = $status[2]/10 . " | voltage=" . $status[2]/10 . "v;230;230;200;230";
+	}
+
+	case "inputf" {
+
+		$out = $status[3]/100 . " | frequency=" . $status[3]/100 . "Hz;62;62;58;62";
+	}
+
+	case "outputv" {
+
+		$out = $status[4]/10 . " | voltage=" . $status[4]/10 . "v;230;230;200;230";
+	}
+
+	case "outputf" {
+
+		$out = $status[5]/10 . " | frequency=" . $status[5]/10 . "Hz;62;62;58;62";
+
+	}
+
+	case "outputc" {
+
+		$out = $status[6]/10 . " | amperage=" . $status[6]/10 . "A;10;15;.1;15";
+	}
+
+	print "unrecognized key: $key";
+	exit $ERRORS{'CRITICAL'};
+}
+
+
+if (($min < $${key}) and ($${key} < $max)){
+	print "NORMAL: $manuf($model) $out";
+	exit $ERRORS{'OK'};
+} else {
+	print "CRITICAL: $manuf($model) $out";
+	exit $ERRORS{'CRITICAL'};
+}

@@ -1,0 +1,21 @@
+#!/bin/sh
+JAVA_CMD=`which java`
+if [ -z $JAVA_CMD ]
+then
+  if [ -x $JAVA_HOME/bin/java ]
+  then
+    JAVA_CMD=$JAVA_HOME/bin/java
+  else
+    echo JMX CRITICAL - java not found.
+    exit 2
+  fi
+fi
+
+RDIR=`dirname $0`
+OUTPUT=$($JAVA_CMD -cp $RDIR/jmxquery.jar org.nagios.JMXQuery $@)
+EXIT_STATUS=$?
+STATUS=`echo $OUTPUT`
+VALUE=$(echo $OUTPUT | sed 's/.*{\(.*\)}.*/\1;/' | sed 's/;/; /g')
+echo "$STATUS | $VALUE"
+
+exit $EXIT_STATUS
