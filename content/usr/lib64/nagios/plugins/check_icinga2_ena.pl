@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/bin/perl
 #/usr/lib64/icinga2/sbin/icinga2 daemon -c /etc/icinga2/icinga2.conf -C
 #
 #

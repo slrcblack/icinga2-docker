@@ -106,7 +106,7 @@ RUN sed -i 's/;date.timezone =/date.timezone = UTC/g' /etc/php.ini
 EXPOSE 22 5665
 
 # volumes
-VOLUME ["/etc/icinga2", "/etc/icingaweb2", "/var/lib/icinga2", "/usr/share/icingaweb2", "/var/lib/mysql", "/etc/nrpe.d", "/usr/lib64/nagios/plugins"]
+VOLUME ["/etc/icinga2", "/etc/icingaweb2", "/var/lib/icinga2", "/usr/share/icingaweb2", "/var/lib/mysql", "/etc/nrpe.d", "/usr/lib64/nagios/plugins", "/etc/icinga2/pki" ]
 
 # change this to entrypoint preventing bash login
 CMD ["/opt/icinga2/initdocker"]

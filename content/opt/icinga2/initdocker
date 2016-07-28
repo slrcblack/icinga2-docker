@@ -41,8 +41,15 @@ if [ ! -f "${initfile}" ]; then
         rm /etc/icinga2/conf.d/templates.conf
         rm /etc/icinga2/conf.d/timeperiods.conf
         rm /etc/icinga2/conf.d/users.conf
-        echo "constant DNODE = \"$IEND\"" >> /etc/icinga2/constants.conf
-        echo "constant DZONE = \"$IZONE\"" >> /etc/icinga2/constants.conf
+        echo "const DNODE = \"$IEND\"" >> /etc/icinga2/constants.conf
+        sed -i -e 's/^.* NodeName = .*/ /gi' /etc/icinga2/constants.conf;
+        echo "const NodeName = \"$IEND\"" >> /etc/icinga2/constants.conf
+        echo "const DZONE = \"$IZONE\"" >> /etc/icinga2/constants.conf
+        cat /dev/null > /etc/icinga2/zones.conf
+
+        icinga2 pki new-cert --cn $IEND --key /etc/icinga2/pki/$IEND.key --csr /etc/icinga2/pki/$IEND.csr; \
+ icinga2 pki sign-csr --csr /etc/icinga2/pki/$IEND.csr --cert /etc/icinga2/pki/$IEND.crt;
+
 
         echo_log "Enabling icingaweb2 modules."
         if [[ -L /etc/icingaweb2/enabledModules/monitoring ]]; then echo "Symlink for /etc/icingaweb2/enabledModules/monitoring exists already...skipping"; else ln -s /usr/share/icingaweb2/modules/monitoring /etc/icingaweb2/enabledModules/monitoring; fi
@@ -50,6 +57,10 @@ if [ ! -f "${initfile}" ]; then
         touch ${initfile}
 fi
 
+
+if ! icinga2 daemon -C; then
+        echo_log "Icinga 2 config validation failed."
+fi
 
 
 
