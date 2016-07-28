@@ -36,8 +36,8 @@ RUN [ -f /etc/rpm/macros.imgcreate ] && sed -i '/excludedocs/d' /etc/rpm/macros.
 RUN [ -f /etc/yum.conf ] && sed -i '/nodocs/d' /etc/yum.conf || exit 0
 
 RUN yum -y install vim hostname bind-utils cronie logrotate supervisor openssh openssh-server openssh-client rsyslog sudo passwd sed which vim-enhanced pwgen psmisc mailx \
- httpd nagios-plugins-all mariadb-server mariadb-libs mariadb; \
- yum -y install --enablerepo=icinga-snapshot-builds icinga2 icinga2-doc icinga2-ido-mysql icingaweb2 icingacli php-ZendFramework php-ZendFramework-Db-Adapter-Pdo-Mysql; \
+ nagios-plugins-all nrpe xinetd mariadb-libs mariadb; \
+ yum -y install --enablerepo=icinga-snapshot-builds icinga2 icinga2-doc icingacli php-ZendFramework php-ZendFramework-Db-Adapter-Pdo-Mysql; \
  yum clean all;
 
 # create api certificates and users (will be overridden later)
@@ -102,8 +102,8 @@ RUN mkdir -p /var/log/supervisor; \
 # configure PHP timezone
 RUN sed -i 's/;date.timezone =/date.timezone = UTC/g' /etc/php.ini
 
-# ports (icinga2 api & cluster (5665), mysql (3306))
-EXPOSE 22 80 443 5665 3306
+# ports (icinga2 api & cluster (5665))
+EXPOSE 22 5665
 
 # volumes
 VOLUME ["/etc/icinga2", "/etc/icingaweb2", "/var/lib/icinga2", "/usr/share/icingaweb2", "/var/lib/mysql"]
