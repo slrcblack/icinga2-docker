@@ -47,8 +47,8 @@ if [ ! -f "${initfile}" ]; then
         echo "const DZONE = \"$IZONE\"" >> /etc/icinga2/constants.conf
         cat /dev/null > /etc/icinga2/zones.conf
 
-        icinga2 pki new-cert --cn $IEND --key /etc/icinga2/pki/$IEND.key --csr /etc/icinga2/pki/$IEND.csr; \
- icinga2 pki sign-csr --csr /etc/icinga2/pki/$IEND.csr --cert /etc/icinga2/pki/$IEND.crt;
+        #icinga2 pki new-cert --cn $IEND --key /etc/icinga2/pki/$IEND.key --csr /etc/icinga2/pki/$IEND.csr; \
+        #icinga2 pki sign-csr --csr /etc/icinga2/pki/$IEND.csr --cert /etc/icinga2/pki/$IEND.crt;
 
 
         echo_log "Enabling icingaweb2 modules."
