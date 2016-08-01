@@ -66,7 +66,7 @@ if ! icinga2 daemon -C; then
         echo_log "Icinga 2 config validation failed."
 fi
 
-
+chmod u+s /usr/lib64/nagios/plugins/*
 
 echo_log "Starting Supervisor. CTRL-C will stop the container."
 /usr/bin/supervisord -c /etc/supervisord.conf >> /dev/null
