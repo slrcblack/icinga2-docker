@@ -54,6 +54,10 @@ if [ ! -f "${initfile}" ]; then
         echo_log "Enabling icingaweb2 modules."
         if [[ -L /etc/icingaweb2/enabledModules/monitoring ]]; then echo "Symlink for /etc/icingaweb2/enabledModules/monitoring exists already...skipping"; else ln -s /usr/share/icingaweb2/modules/monitoring /etc/icingaweb2/enabledModules/monitoring; fi
 
+        cp /etc/icinga2/features-available/api.conf.checker /etc/icinga2/features-available/api.conf
+        chown icinga:icinga /etc/icinga2/features-available
+        chown icinga:icinga /etc/icinga2/features-available/api.conf
+
         touch ${initfile}
 fi
 
