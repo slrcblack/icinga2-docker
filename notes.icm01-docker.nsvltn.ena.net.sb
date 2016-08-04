@@ -1,0 +1,9 @@
+#Generate PKI on icd01.nsvltn.ena.net
+#Distribute pki to icd01* icm01* and add to the git repo
+
+#git pull https://github.com/slrcblack/icinga2-docker.git
+#cd to the github path...  /opt/keep/git/icinga2-docker
+
+docker build -t sb-icinga2 .
+docker run -ti --name sb-icinga2 -h icm01-docker.nsvltn.ena.net -e IEND=icm01-docker.nsvltn.ena.net -e IZONE=Checker-Icinga  -p 3022:22 -p 15665:5665 -p 15666:5666 sb-icinga2
+
