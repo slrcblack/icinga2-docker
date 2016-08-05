@@ -49,6 +49,13 @@ if [ ! -f "${initfile}" ]; then
 
         #icinga2 pki new-cert --cn $IEND --key /etc/icinga2/pki/$IEND.key --csr /etc/icinga2/pki/$IEND.csr; \
         #icinga2 pki sign-csr --csr /etc/icinga2/pki/$IEND.csr --cert /etc/icinga2/pki/$IEND.crt;
+        echo_log "Updating NRPE"
+        cat /etc/nagios/nrpe.cfg | grep -v 'nrpe_user' | grep -v 'nrpe_group' | grep -v 'allowed_hosts' | grep -v 'dont_blame_nrpe' >> /etc/nagios/nrpe.cfg.tmp
+        mv /etc/nagios/nrpe.cfg.tmp /etc/nagios/nrpe.cfg
+
+        echo "nrpe_user=nagios" >> /etc/nagios/nrpe.cfg
+        echo "nrpe_group=nagios" >> /etc/nagios/nrpe.cfg
+        echo "dont_blame_nrpe=1" >> /etc/nagios/nrpe.cfg
 
 
         echo_log "Enabling icingaweb2 modules."
