@@ -66,6 +66,8 @@ if [ ! -f "${initfile}" ]; then
         chown icinga:icinga /etc/icinga2/features-available
         chown icinga:icinga /etc/icinga2/features-available/api.conf
 
+        chmod u+s /usr/lib64/icinga2/sbin/icinga2
+
         touch ${initfile}
 fi
 
