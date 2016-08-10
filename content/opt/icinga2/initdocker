@@ -45,6 +45,14 @@ if [ ! -f "${initfile}" ]; then
         sed -i -e 's/^.* NodeName = .*/ /gi' /etc/icinga2/constants.conf;
         echo "const NodeName = \"$IEND\"" >> /etc/icinga2/constants.conf
         echo "const DZONE = \"$IZONE\"" >> /etc/icinga2/constants.conf
+
+
+        if [ "${ICLUSTER}" == "Y" ]; then
+           echo "const DNODE2 = \"$IEND2\"" >> /etc/icinga2/constants.conf
+           sed -i -e 's/DNODE/DNONE, DNODE2/' /etc/icinga2/conf.d/sb.conf 
+        fi
+
+    
         cat /dev/null > /etc/icinga2/zones.conf
 
         #icinga2 pki new-cert --cn $IEND --key /etc/icinga2/pki/$IEND.key --csr /etc/icinga2/pki/$IEND.csr; \
