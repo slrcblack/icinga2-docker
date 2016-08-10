@@ -49,7 +49,7 @@ if [ ! -f "${initfile}" ]; then
 
         if [ "${ICLUSTER}" == "Y" ]; then
            echo "const DNODE2 = \"$IEND2\"" >> /etc/icinga2/constants.conf
-           sed -i -e 's/[ DNODE/[ DNODE, DNODE2/' /etc/icinga2/conf.d/sb.conf 
+           sed -i -e 's/\[ DNODE/\[ DNODE, DNODE2/' /etc/icinga2/conf.d/sb.conf 
 
            cp /etc/icinga2/conf.d/sb-node2.TMP /etc/icinga2/conf.d/sb-node.conf
         fi

@@ -11,6 +11,18 @@
 #firewall-cmd --permanent --direct --add-rule ipv4 filter INPUT 0 -p tcp --dport 25666 -j ACCEPT
 #firewall-cmd --permanent --direct --add-rule ipv4 filter INPUT 0 -p tcp --dport 25665 -j ACCEPT
 #firewall-cmd --permanent --direct --add-rule ipv4 filter INPUT 0 -p tcp --dport 20022 -j ACCEPT
+#
+#
+# iptables -I INPUT 10 -i eth0 -p tcp --dport 15665 -m state --state NEW,ESTABLISHED -j ACCEPT
+# iptables -I INPUT 10 -i eth0 -p tcp --dport 15666 -m state --state NEW,ESTABLISHED -j ACCEPT
+# iptables -I INPUT 10 -i eth0 -p tcp --dport 25665 -m state --state NEW,ESTABLISHED -j ACCEPT
+# iptables -I INPUT 10 -i eth0 -p tcp --dport 25666 -m state --state NEW,ESTABLISHED -j ACCEPT
+# iptables -I INPUT 10 -i docker0 -p tcp --dport 15665 -m state --state NEW,ESTABLISHED -j ACCEPT
+# iptables -I INPUT 10 -i docker0 -p tcp --dport 15666 -m state --state NEW,ESTABLISHED -j ACCEPT
+# iptables -I INPUT 10 -i docker0 -p tcp --dport 25665 -m state --state NEW,ESTABLISHED -j ACCEPT
+# iptables -I INPUT 10 -i docker0 -p tcp --dport 25666 -m state --state NEW,ESTABLISHED -j ACCEPT
+# /sbin/service iptables save
+
 
 docker build -t sb-icinga2-1 .
 docker run -ti --name sb-icinga2-1 -h nsc01-docker1.nsvltn.ena.net -e ICLUSTER=Y -e IEND=nsc01-docker1.nsvltn.ena.net -e IEND2=nsc01-docker2.nsvltn.ena.net -e IZONE=Checker-TN-Central -p 10022:22 -p 15665:5665 -p 15666:5666 sb-icinga2-1
