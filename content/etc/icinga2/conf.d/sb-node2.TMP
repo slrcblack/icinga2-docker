@@ -1,0 +1,18 @@
+object Endpoint DNODE {
+
+    host = DNODE
+    port = "5665"
+    log_duration = 1d
+}
+
+object Endpoint DNODE2 {
+
+    host = DNODE2
+    port = "5665"
+    log_duration = 1d
+}
+
+
+template Host "HT-Checker-Default" {
+}
+
